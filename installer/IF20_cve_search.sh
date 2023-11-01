@@ -104,6 +104,7 @@ IF20_cve_search() {
         cd "${HOME_PATH}" || ( echo "Could not install EMBA component cve-search" && exit 1 )
 
         CVE_INST=1
+        CVE_INST_FOCAL=0 # Set to false(0) if you are on 22.04
         echo -e "\\n""${MAGENTA}""Check if the cve-search database is already installed and populated.""${NC}"
         cd ./external/cve-search/ || ( echo "Could not install EMBA component cve-search" && exit 1 )
         if [[ $(./bin/search.py -p busybox 2>/dev/null | grep -c ":\ CVE-") -gt 18 ]]; then
@@ -115,16 +116,18 @@ IF20_cve_search() {
 
         cd "${HOME_PATH}" || ( echo "Could not install EMBA component cve-search" && exit 1 )
         if [[ "${CVE_INST}" -eq 1 ]]; then
+
+         if [[ "${CVE_INST_FOCAL}" -eq 1 ]]; then
           if ! dpkg -s libssl1.1 &>/dev/null; then
             # libssl1.1 missing
             echo -e "\\n""${BOLD}""Installing libssl1.1 for mongodb!""${NC}"
             # echo "deb http://security.ubuntu.com/ubuntu impish-security main" | tee /etc/apt/sources.list.d/impish-security.list
             for i in {21..29}; do
-              echo "Testing download of libssl package version libssl1.1_1.1.1-1ubuntu2.1~18.04.${i}_amd64.deb"
-              wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04."${i}"_amd64.deb -O external/libssl-dev.deb || true
-                # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
-              wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04."${i}"_amd64.deb -O external/libssl.deb || true
-                # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_amd64.deb
+              echo "Testing download of libssl package version libssl1.1_1.1.1-1ubuntu2.1~18.04.${i}_arm64.deb"
+              wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04."${i}"_arm64.deb -O external/libssl-dev.deb || true
+                # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.1.1-1ubuntu2.1~18.04.26_arm64.deb
+              wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04."${i}"_arm64.deb -O external/libssl.deb || true
+                # http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1-1ubuntu2.1~18.04.23_arm64.deb
               if [[ "$(file external/libssl.deb)" == *"Debian binary package (format 2.0)"* ]]; then
                 break
               else
@@ -139,11 +142,18 @@ IF20_cve_search() {
             dpkg -i external/libssl-dev.deb
             [[ -f external/libssl.deb ]] && rm external/libssl.deb
             [[ -f external/libssl-dev.deb ]] && rm external/libssl-dev.deb
-          fi
+           fi
 
           wget --no-check-certificate -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/mongodb.gpg > /dev/null
+          # Note that FOCAL is set here
           echo "deb [ signed-by=/etc/apt/trusted.gpg.d/mongodb.gpg ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+         fi
+          
+          curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+          # Note that JAMMY is set here
+          echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
           apt-get update -y
+
           print_tool_info "mongodb-org" 1
           apt-get install mongodb-org -y
           if ! [[ -f /etc/mongod.conf ]]; then
